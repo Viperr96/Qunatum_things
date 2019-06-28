@@ -496,7 +496,7 @@ backend = least_busy(IBMQ.backends(filters=lambda x: not x.configuration().simul
 # backend = IBMQ.get_backend('ibmq_16_melbourne')
 backend_monitor(backend)
 
-for bj_step in range(0, 61):
+for bj_step in range(0, 31):
 
     theta = np.random.random_sample((num_genome, depth, num_qubits)) * pi
     phi = np.random.random_sample((num_genome, depth, num_qubits)) * 2 * pi
