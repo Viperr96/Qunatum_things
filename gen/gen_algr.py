@@ -12,6 +12,8 @@ from qiskit.tools.monitor import job_monitor, backend_monitor, backend_overview
 from qiskit.quantum_info.analyzation.average import average_data
 from qiskit.providers.ibmq import least_busy
 from qiskit.providers.exceptions import JobError, JobTimeoutError
+from qiskit.compiler import transpile, assemble
+
 
 # from qiskit import QuantumProgram, QuantumCircuit, QuantumRegister, ClassicalRegister
 
@@ -422,15 +424,14 @@ if p.prefix:
 
  p.prefix += '_'
 
-
-IBMQ.enable_account('ed1f7070919a8ce0469e69c1cb5b5dc1e114879caada8d0ce25d6e28e91b40c90209146d85eec5118e2584667b02e9662802f0ffaa2494c72375a4906e129fdf')
+provider = IBMQ.enable_account('ed1f7070919a8ce0469e69c1cb5b5dc1e114879caada8d0ce25d6e28e91b40c90209146d85eec5118e2584667b02e9662802f0ffaa2494c72375a4906e129fdf')
 print('Account loaded')
 
 #name_backend='local_qasm_simulator'
 # name_backend='ibmq_16_melbourne'
 #name_backend='ibmqx4'
 
-iteration = 2
+iteration = 10
 num_qubits =2
 Jexch=1
 device_shots = 2048
@@ -460,7 +461,7 @@ if p.load_angles:
 
     noble_angles = read_angles(folder_name + 'angles.h5', num_noble_genome)
 
-    print(noble_angles)
+    # print(noble_angles)
 
     theta, lada, phi = evolve_genomes(*noble_angles, angle_mutation)
 
@@ -471,11 +472,11 @@ if p.load_angles:
 result_path = folder_name + 'final_result.dat'
 result_days = open(result_path, 'w')
 
-# backend = least_busy(IBMQ.backends(filters=lambda x: not x.configuration().simulator))
-backend = IBMQ.get_backend('ibmqx2')
+# backend = least_busy(provider.backends(filters=lambda x: not x.configuration().simulator))
+backend = provider.get_backend('ibmq_16_melbourne')
 backend_monitor(backend)
 
-for bj_step in range(4, 21):
+for bj_step in range(5, 21):
 
     pres = 0.005
     prev_energy = 10
@@ -487,21 +488,22 @@ for bj_step in range(4, 21):
 
     for i in range(num_iter):
 
+        print('BJ ' + str(bj_step) + ', iteration numer ' + str(i))
+        circuits = []
+
         energy_Heis = np.zeros((num_genome), np.float32)
         fitness = np.zeros((num_genome), np.float32)
         magnetization = np.zeros((num_genome), np.float32)
         corXX = np.zeros((num_genome), np.float32)
         corYY = np.zeros((num_genome), np.float32)
         corZZ = np.zeros((num_genome), np.float32)
-        corXY = np.zeros((num_genome), np.float32)
-        corXZ = np.zeros((num_genome), np.float32)
-        corYZ = np.zeros((num_genome), np.float32)
+        # corXY = np.zeros((num_genome), np.float32)
+        # corXZ = np.zeros((num_genome), np.float32)
+        # corYZ = np.zeros((num_genome), np.float32)
 
 
 
         for igenome in range(num_genome):
-
-            print('BJ ' + str(bj_step) + ', iteration numer ' + str(i) + ', genome number ' + str(igenome))
 
             # Creating registers
             q = QuantumRegister(num_qubits)
@@ -524,7 +526,7 @@ for bj_step in range(4, 21):
             measureZZ = QuantumCircuit(q, c)
             measureZZ.measure(q[0], c[0])
             measureZZ.measure(q[1], c[1])
-            singletZZ = singlet+measureZZ
+            # singletZZ = singlet+measureZZ
 
             # quantum circuit to measure q in the standard basis
             measureYY = QuantumCircuit(q, c)
@@ -534,7 +536,7 @@ for bj_step in range(4, 21):
             measureYY.h(q[1])
             measureYY.measure(q[0], c[0])
             measureYY.measure(q[1], c[1])
-            singletYY = singlet+measureYY
+            # singletYY = singlet+measureYY
 
             # quantum circuit to measure q in the superposition basis
             measureXX = QuantumCircuit(q, c)
@@ -542,122 +544,93 @@ for bj_step in range(4, 21):
             measureXX.h(q[1])
             measureXX.measure(q[0], c[0])
             measureXX.measure(q[1], c[1])
-            singletXX = singlet+measureXX
+            # singletXX = singlet+measureXX
 
 
-            # quantum circuit to measure ZX
-            measureZX = QuantumCircuit(q, c)
-            measureZX.h(q[0])
-            measureZX.measure(q[0], c[0])
-            measureZX.measure(q[1], c[1])
-            singletZX = singlet+measureZX
-
-            # quantum circuit to measure XZ
-            measureXZ = QuantumCircuit(q, c)
-            measureXZ.h(q[1])
-            measureXZ.measure(q[0], c[0])
-            measureXZ.measure(q[1], c[1])
-            singletXZ = singlet+measureXZ
-
-            # quantum circuit to measure q in the standard basis
-            measureXY = QuantumCircuit(q, c)
-            measureXY.sdg(q[1])
-            measureXY.h(q[0])
-            measureXY.h(q[1])
-            measureXY.measure(q[0], c[0])
-            measureXY.measure(q[1], c[1])
-            singletXY = singlet+measureXY
-
-            # quantum circuit to measure q in the standard basis
-            measureYX = QuantumCircuit(q, c)
-            measureYX.sdg(q[0])
-            measureYX.h(q[0])
-            measureYX.h(q[1])
-            measureYX.measure(q[0], c[0])
-            measureYX.measure(q[1], c[1])
-            singletYX = singlet+measureYX
-
-            # quantum circuit to measure q in the standard basis
-            measureYZ = QuantumCircuit(q, c)
-            measureYZ.sdg(q[0])
-            measureYZ.h(q[0])
-            measureYZ.measure(q[0], c[0])
-            measureYZ.measure(q[1], c[1])
-            singletYZ = singlet+measureYZ
-
-            # quantum circuit to measure q in the standard basis
-            measureZY = QuantumCircuit(q, c)
-            measureZY.sdg(q[1])
-            measureZY.h(q[1])
-            measureZY.measure(q[0], c[0])
-            measureZY.measure(q[1], c[1])
-            singletZY = singlet+measureZY
-
-            circuits = [singletXZ,singletZX,singletXX,singletYY,singletZZ,singletXY,singletYX,singletYZ,singletZY]
-
-            no_error = True
-            while no_error:
-                try:
-                    # job = execute(circuits, BasicAer.get_backend('qasm_simulator'), shots=device_shots)
-                    # job = do_job_on_simulator(backend, circuits)
-                    job = execute(circuits, backend=backend, shots=device_shots)
-                    job_monitor(job)
-                    result = job.result()
-                    no_error = False
-                except JobError:
-                    print(JobError)
-                    no_error = True
-
-            observable_first = {'00': 1, '01': -1, '10': 1, '11': -1}
+            # # quantum circuit to measure ZX
+            # measureZX = QuantumCircuit(q, c)
+            # measureZX.h(q[0])
+            # measureZX.measure(q[0], c[0])
+            # measureZX.measure(q[1], c[1])
+            # singletZX = singlet+measureZX
+            #
+            # # quantum circuit to measure XZ
+            # measureXZ = QuantumCircuit(q, c)
+            # measureXZ.h(q[1])
+            # measureXZ.measure(q[0], c[0])
+            # measureXZ.measure(q[1], c[1])
+            # singletXZ = singlet+measureXZ
+            #
+            # # quantum circuit to measure q in the standard basis
+            # measureXY = QuantumCircuit(q, c)
+            # measureXY.sdg(q[1])
+            # measureXY.h(q[0])
+            # measureXY.h(q[1])
+            # measureXY.measure(q[0], c[0])
+            # measureXY.measure(q[1], c[1])
+            # singletXY = singlet+measureXY
+            #
+            # # quantum circuit to measure q in the standard basis
+            # measureYX = QuantumCircuit(q, c)
+            # measureYX.sdg(q[0])
+            # measureYX.h(q[0])
+            # measureYX.h(q[1])
+            # measureYX.measure(q[0], c[0])
+            # measureYX.measure(q[1], c[1])
+            # singletYX = singlet+measureYX
+            #
+            # # quantum circuit to measure q in the standard basis
+            # measureYZ = QuantumCircuit(q, c)
+            # measureYZ.sdg(q[0])
+            # measureYZ.h(q[0])
+            # measureYZ.measure(q[0], c[0])
+            # measureYZ.measure(q[1], c[1])
+            # singletYZ = singlet+measureYZ
+            #
+            # # quantum circuit to measure q in the standard basis
+            # measureZY = QuantumCircuit(q, c)
+            # measureZY.sdg(q[1])
+            # measureZY.h(q[1])
+            # measureZY.measure(q[0], c[0])
+            # measureZY.measure(q[1], c[1])
+            # singletZY = singlet+measureZY
 
 
-            observable_second = {'00': 1, '01': 1, '10': -1, '11': -1}
+            exec('singletZZ_%d = singlet+measureZZ' % igenome)
+            exec('singletYY_%d = singlet+measureYY' % igenome)
+            exec('singletXX_%d = singlet+measureXX' % igenome)
 
+            exec('circuits.extend([singletXX_%d,singletYY_%d,singletZZ_%d])' % (igenome, igenome, igenome))
 
-            observable_correlated = {'00': 1, '01': -1, '10': -1, '11': 1}
+        qjob = assemble(transpile(circuits, backend=backend), shots=device_shots)
+        no_error = True
+        while no_error:
+            try:
+                # job = execute(circuits, BasicAer.get_backend('qasm_simulator'), shots=device_shots)
+                # job = do_job_on_simulator(backend, circuits)
 
+                job = execute(circuits, backend = backend, shots=device_shots)
+                job_monitor(job)
+                result = job.result()
+                no_error = False
+            except JobError:
+                print(JobError)
+                no_error = True
 
+        observable_first = {'00': 1, '01': -1, '10': 1, '11': -1}
+        observable_second = {'00': 1, '01': 1, '10': -1, '11': -1}
+        observable_correlated = {'00': 1, '01': -1, '10': -1, '11': 1}
 
-           # print('IZ = ' + str(result.average_data(singletZZ,observable_first)))
-           # print('ZI = ' + str(result.average_data(singletZZ,observable_second)))
-        #   print('ZZ = ' + str(result.average_data(singletZZ,observable_correlated)))
+        for igenome in range(num_genome):
+            exec(
+                'energy_Heis[igenome] = get_energy(num_qubits, Jexch, bj_step, result, [singletXX_%d, singletYY_%d, singletZZ_%d])' % (
+                igenome, igenome, igenome))
+            fitness[igenome] = 0
+            exec('magnetization[igenome] = get_magnetization(num_qubits, result,[singletZZ_%d])' % igenome)
+            exec('corXX[igenome] = average_data(result.get_counts(singletXX_%d), observable_correlated)' % igenome)
+            exec('corYY[igenome] = average_data(result.get_counts(singletYY_%d), observable_correlated)' % igenome)
+            exec('corZZ[igenome] = average_data(result.get_counts(singletZZ_%d), observable_correlated)' % igenome)
 
-           # print('IX = ' + str(result.average_data(singletXX,observable_first)))
-           # print('XI = ' + str(result.average_data(singletXX,observable_second)))
-        #   print('XX = ' + str(result.average_data(singletXX,observable_correlated)))
-
-           # print('IY = ' + str(result.average_data(singletYY,observable_first)))
-           # print('YI = ' + str(result.average_data(singletYY,observable_second)))
-        #   print('YY = ' + str(result.average_data(singletYY,observable_correlated)))
-
-        #   print('ZX = ' + str(result.average_data(singletZX,observable_correlated)))
-        #   print('XZ = ' + str(result.average_data(singletXZ,observable_correlated)))
-
-        #   print('XY = ' + str(result.average_data(singletXY,observable_correlated)))
-        #   print('YX = ' + str(result.average_data(singletYX,observable_correlated)))
-
-        #   print('YZ = ' + str(result.average_data(singletYZ,observable_correlated)))
-        #   print('ZY = ' + str(result.average_data(singletZY,observable_correlated)))
-
-           # print('correlations matrix')
-           # print(str(result.average_data(singletXX,observable_correlated)),str(result.average_data(singletXY,observable_correlated)),str(result.average_data(singletXZ,observable_correlated)))
-           # print(str(result.average_data(singletYX,observable_correlated)),str(result.average_data(singletYY,observable_correlated)),str(result.average_data(singletYZ,observable_correlated)))
-           # print(str(result.average_data(singletZX,observable_correlated)),str(result.average_data(singletZY,observable_correlated)),str(result.average_data(singletZZ,observable_correlated)))
-
-            energy_Heis[igenome] = get_energy(Jexch, bj_step, result, [singletXX, singletYY, singletZZ], observable_correlated)
-            fitness[igenome] = get_fitness(result, [singletXX, singletYY, singletZZ,singletXY,singletYX,singletXZ,singletZX,singletYZ,singletZY], observable_first, observable_second,observable_correlated)
-            magnetization[igenome] = get_magnetization(result,[singletZZ])
-            corXX[igenome] = average_data(result.get_counts(singletXX), observable_correlated)
-            corYY[igenome] = average_data(result.get_counts(singletYY), observable_correlated)
-            corZZ[igenome] = average_data(result.get_counts(singletZZ), observable_correlated)
-            corXY[igenome] = average_data(result.get_counts(singletXY), observable_correlated)
-            corYZ[igenome] = average_data(result.get_counts(singletYZ), observable_correlated)
-            corXZ[igenome] = average_data(result.get_counts(singletXZ), observable_correlated)
-
-
-            print('average energy_Heis=',energy_Heis[igenome])
-            print('average fitness=',fitness[igenome])
-            print('average magnetization=', magnetization[igenome])
 
         energy_for_file = energy_Heis.copy()
         energy_for_file.sort()
@@ -671,10 +644,8 @@ for bj_step in range(4, 21):
         ideal_angle_number = nobles[3]
         nobles = nobles[:3]
 
-
         correlator_days.write(str(i) + ' ' + str(energy_Heis[ideal_angle_number]) + ' ' + str(magnetization[ideal_angle_number]) + ' ' + str(fitness[ideal_angle_number]) + ' ' +
-                              str(corXX[ideal_angle_number]) + ' ' + str(corYY[ideal_angle_number]) + ' ' + str(corZZ[ideal_angle_number]) + ' ' +
-                              str(corXY[ideal_angle_number]) + ' ' + str(corXZ[ideal_angle_number]) + ' ' + str(corYZ[ideal_angle_number]) + ' angles:')
+                              str(corXX[ideal_angle_number]) + ' ' + str(corYY[ideal_angle_number]) + ' ' + str(corZZ[ideal_angle_number]) + ' angles:')
         for pair in theta[ideal_angle_number, :, :]:
             correlator_days.write('{0} {1} '.format(*pair))
 

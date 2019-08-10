@@ -13,12 +13,6 @@ from qiskit.quantum_info.analyzation.average import average_data
 from qiskit.providers.ibmq import least_busy
 from qiskit.providers.exceptions import JobError, JobTimeoutError
 
-# from qiskit import QuantumProgram, QuantumCircuit, QuantumRegister, ClassicalRegister
-
-
-
-# from qiskit import available_backends, get_backend, execute, register
-
 
 
 from qiskit.tools.visualization import plot_histogram, circuit_drawer
@@ -39,10 +33,12 @@ def do_job_on_simulator(real_backend , circuits:  list):
     noise_model = noise.device.basic_device_noise_model(properties, gate_times=gate_times)
     basis_gates = noise_model.basis_gates
     simulator = Aer.get_backend('qasm_simulator')
-    job = execute(circuits, simulator,
+    job = execute(circuits,
+                  simulator,
                   noise_model=noise_model,
                   coupling_map=coupling_map,
-                  basis_gates=basis_gates)
+                  basis_gates=basis_gates,
+                  memory = True)
     return job
 
 def make_rotation(qubit_quantity: int, circuit: QuantumCircuit, registers: QuantumRegister, theta, phi, lada):
@@ -96,6 +92,26 @@ def make_rotation(qubit_quantity: int, circuit: QuantumCircuit, registers: Quant
 
         circuit.cx(registers[2], registers[1])
 
+        circuit.cx(registers[0], registers[2])
+
+    if qubit_quantity == 4:
+
+        circuit.u3(theta[0], phi[0], lada[0], registers[0])
+
+        circuit.u3(theta[1], phi[1], lada[1], registers[1])
+
+        circuit.u3(theta[2], phi[2], lada[2], registers[2])
+
+        circuit.u3(theta[3], phi[3], lada[3], registers[3])
+
+        circuit.cx(registers[1], registers[0])
+
+        circuit.cx(registers[2], registers[1])
+
+        circuit.cx(registers[3], registers[2])
+
+        circuit.cx(registers[0], registers[3])
+
 
 def get_energy(qubit_quantity: int, exchange, bj, result, circuits: list) -> float:
 
@@ -129,8 +145,8 @@ def get_energy(qubit_quantity: int, exchange, bj, result, circuits: list) -> flo
 
     if qubit_quantity == 3:
 
-        first_correlated = {'000': 1, '100': 1, '011': 1, '111': 1, '001': -1, '010': -1, '101': -1, '110': -1, }
-        second_correlated = {'000': 1, '001': 1, '110': 1, '111': 1, '100': -1, '010': -1, '101': -1, '011': -1, }
+        first_correlated = {'000': 1, '100': 1, '011': 1, '111': 1, '001': -1, '010': -1, '101': -1, '110': -1}
+        second_correlated = {'000': 1, '001': 1, '110': 1, '111': 1, '100': -1, '010': -1, '101': -1, '011': -1}
 
         # smart_correlated = {
         #     '12', {'000': 1, '100': 1, '011': 1, '111': 1, '001': -1, '010': -1, '101': -1, '110': -1, },
@@ -145,7 +161,29 @@ def get_energy(qubit_quantity: int, exchange, bj, result, circuits: list) -> flo
                             average_data(result.get_counts(circuits[2]), second_correlated)) + \
               bj * exchange * get_magnetization(qubit_quantity, result, [circuits[2]])
 
+    if qubit_quantity == 4:
+
+        first_correlated = {'0000': 1, '1100': 1, '1000': 1, '0100': 1, '0011': 1, '1111': 1, '1011': 1, '0111': 1,
+                            '0001': -1, '1101': -1, '1001': -1, '0101': -1, '0010': -1, '1110': -1, '1010': -1, '0110': -1} #**11
+        second_correlated = {'0000': 1, '1001': 1, '1000': 1, '0001': 1, '0110': 1, '1111': 1, '1110': 1, '0111': 1,
+                             '0100': -1, '1101': -1, '1100': -1, '0101': -1, '0010': -1, '1011': -1, '1010': -1, '0011': -1,}#*11*
+        third_correlated = {'0000': 1, '0011': 1, '0010': 1, '0001': 1, '1100': 1, '1111': 1, '1110': 1, '1101': 1,
+                             '1000': -1, '1011': -1, '1010': -1, '1001': -1, '0100': -1, '0111': -1, '0110': -1, '0101': -1,}#11**
+
+        res = exchange/4 * (average_data(result.get_counts(circuits[0]), first_correlated) +
+                            average_data(result.get_counts(circuits[1]), first_correlated) +
+                            average_data(result.get_counts(circuits[2]), first_correlated) +
+                            average_data(result.get_counts(circuits[0]), second_correlated) +
+                            average_data(result.get_counts(circuits[1]), second_correlated) +
+                            average_data(result.get_counts(circuits[2]), second_correlated) +
+                            average_data(result.get_counts(circuits[0]), third_correlated) +
+                            average_data(result.get_counts(circuits[1]), third_correlated) +
+                            average_data(result.get_counts(circuits[2]), third_correlated)) + \
+              bj * exchange * get_magnetization(qubit_quantity, result, [circuits[2]])
+
     return res
+
+
 
 
 def get_fitness(result, circuits: list, codes1: dict, codes2: dict, codes: dict) -> float:
@@ -199,6 +237,25 @@ def get_magnetization(qubit_quantity: int, result, circuits: list) -> float:
         res = (average_data(result.get_counts(circuits[0]), observable_first) +
                average_data(result.get_counts(circuits[0]), observable_second) +
                average_data(result.get_counts(circuits[0]), observable_third)) / 2
+
+    if qubit_quantity == 4:
+
+        observable_first = {'0000': 1, '1110': 1, '1000': 1, '0100': 1, '0010': 1, '1100': 1, '0110': 1, '1010': 1,
+                            '0001': -1, '1111': -1, '1001': -1, '0101': -1, '0011': -1, '1101': -1, '0111': -1, '1011': -1} #***1
+
+        observable_second = {'0000': 1, '1101': 1, '1000': 1, '0100': 1, '0001': 1, '1100': 1, '0101': 1, '1001': 1,
+                            '0010': -1, '1111': -1, '1010': -1, '0110': -1, '0011': -1, '1110': -1, '0111': -1, '1011': -1} #**1*
+
+        observable_third = {'0000': 1, '1011': 1, '1000': 1, '0010': 1, '0001': 1, '1010': 1, '0011': 1, '1001': 1,
+                            '0100': -1, '1111': -1, '1100': -1, '0110': -1, '0101': -1, '1110': -1, '0111': -1, '1101': -1} #*1**
+
+        observable_fourth = {'0000': 1, '0111': 1, '0100': 1, '0010': 1, '0001': 1, '0110': 1, '0011': 1, '0101': 1,
+                            '1000': -1, '1111': -1, '1100': -1, '1010': -1, '1001': -1, '1110': -1, '1011': -1, '1101': -1} #1***
+
+        res = (average_data(result.get_counts(circuits[0]), observable_first) +
+               average_data(result.get_counts(circuits[0]), observable_second) +
+               average_data(result.get_counts(circuits[0]), observable_third) +
+               average_data(result.get_counts(circuits[0]), observable_fourth)) / 2
 
     return res
 
@@ -444,28 +501,35 @@ if p.prefix:
  p.prefix += '_'
 
 
-IBMQ.enable_account('ed1f7070919a8ce0469e69c1cb5b5dc1e114879caada8d0ce25d6e28e91b40c90209146d85eec5118e2584667b02e9662802f0ffaa2494c72375a4906e129fdf')
+provider = IBMQ.enable_account('ed1f7070919a8ce0469e69c1cb5b5dc1e114879caada8d0ce25d6e28e91b40c90209146d85eec5118e2584667b02e9662802f0ffaa2494c72375a4906e129fdf')
 print('Account loaded')
 
-#name_backend='local_qasm_simulator'
 # name_backend='ibmq_16_melbourne'
 #name_backend='ibmqx4'
 
-iteration = 8
-num_qubits = 3
+# backend = least_busy(IBMQ.backends(filters=lambda x: not x.configuration().simulator))
+backend = provider.get_backend('ibmq_16_melbourne')
+backend_monitor(backend)
+
+iteration = 1
+num_qubits = 4
 Jexch=1
-device_shots = 2048
-depth=2
+device_shots = 4096
+depth=5
 num_genome = 50
 num_noble_genome = 10
 num_iter = 25
 angle_mutation = 0.1
+working_backend = 0
+
+
 
 theta=np.random.random_sample((num_genome,depth,num_qubits))*pi
 phi=np.random.random_sample((num_genome,depth,num_qubits))*2*pi
 lada=np.random.random_sample((num_genome,depth,num_qubits))*2*pi
 
-folder_name = str(iteration) + "random_start-num_qubits=" + str(num_qubits) + ",Jexch=" + str(Jexch) + \
+backend_dict = {0: 'simulator', 1: 'simualtor_with_noise', 2: 'real_device'}
+folder_name =  backend_dict[working_backend] + '-' + str(backend) + '-' + str(iteration) + "-random_start-num_qubits=" + str(num_qubits) + ",Jexch=" + str(Jexch) + \
               ",device_shots=" + str(device_shots) + ",depth=" + str(depth) + ",num_genome=" + str(num_genome) + \
               ",num_iter=" + str(num_iter) + ",angle_mutation=" + str(angle_mutation)
 
@@ -492,11 +556,11 @@ if p.load_angles:
 result_path = folder_name + 'final_result.dat'
 result_days = open(result_path, 'w')
 
-backend = least_busy(IBMQ.backends(filters=lambda x: not x.configuration().simulator))
+# backend = least_busy(IBMQ.backends(filters=lambda x: not x.configuration().simulator))
 # backend = IBMQ.get_backend('ibmq_16_melbourne')
-backend_monitor(backend)
+# backend_monitor(backend)
 
-for bj_step in range(0, 31):
+for bj_step in range(0, 61):
 
     theta = np.random.random_sample((num_genome, depth, num_qubits)) * pi
     phi = np.random.random_sample((num_genome, depth, num_qubits)) * 2 * pi
@@ -504,13 +568,18 @@ for bj_step in range(0, 31):
 
     pres = 0.001
     prev_energy = 10
-    bj_step = bj_step / 5
+    bj_step = bj_step / 10
     energy_path = folder_name + str(bj_step) + '-energy.dat'
     energy_days = open(energy_path, 'w')
     correlator_path = folder_name + str(bj_step) + '-Z_correlator.dat'
     correlator_days = open(correlator_path, 'w')
 
+
+
     for i in range(num_iter):
+
+        print('BJ ' + str(bj_step) + ', iteration numer ' + str(i))
+        circuits = []
 
         energy_Heis = np.zeros((num_genome), np.float32)
         fitness = np.zeros((num_genome), np.float32)
@@ -521,8 +590,6 @@ for bj_step in range(0, 31):
 
 
         for igenome in range(num_genome):
-
-            print('BJ ' + str(bj_step) + ', iteration numer ' + str(i) + ', genome number ' + str(igenome))
 
             # Creating registers
             q = QuantumRegister(num_qubits)
@@ -536,7 +603,7 @@ for bj_step in range(0, 31):
                 # lada[igenome, idepth, 1] = 0
                 # lada[igenome, idepth, 2] = 0
 
-                make_rotation(num_qubits, singlet,q, theta[igenome,idepth,:],phi[igenome,idepth,:],lada[igenome,idepth,:])
+                make_rotation(num_qubits, singlet, q, theta[igenome,idepth,:],phi[igenome,idepth,:],lada[igenome,idepth,:])
 
 
             measureZZ = QuantumCircuit(q, c)
@@ -553,43 +620,45 @@ for bj_step in range(0, 31):
                 measureXX.measure(q[iqubit], c[iqubit])
 
 
-            singletZZ = singlet+measureZZ
-            singletYY = singlet+measureYY
-            singletXX = singlet+measureXX
+            exec('singletZZ_%d = singlet+measureZZ' % igenome)
+            exec('singletYY_%d = singlet+measureYY' % igenome)
+            exec('singletXX_%d = singlet+measureXX' % igenome)
 
-            circuits = [singletXX,singletYY,singletZZ]
-            result = 0
+            exec('circuits.extend([singletXX_%d,singletYY_%d,singletZZ_%d])' % (igenome, igenome, igenome))
 
-            no_error = True
-            while no_error:
-                try:
-                    job = execute(circuits, BasicAer.get_backend('qasm_simulator'), shots=device_shots)
-                    # job = do_job_on_simulator(backend, circuits)
-                    # job = execute(circuits, backend=backend, shots=device_shots)
-                    job_monitor(job)
-                    result = job.result()
-                    no_error = False
-                except JobError:
-                    print(JobError)
-                    no_error = True
+        result = 0
+        no_error = True
+        while no_error:
+            try:
+                if working_backend == 0:
+                    job = execute(circuits, BasicAer.get_backend('qasm_simulator'), shots=device_shots, memory = True)
+                if working_backend == 1:
+                    job = do_job_on_simulator(backend, circuits)
+                if working_backend == 2:
+                    job = execute(circuits, backend=backend, shots=device_shots, memory = True)
+                job_monitor(job)
+                result = job.result()
+                no_error = False
+            except JobError:
+                print(JobError)
+                no_error = True
 
-            observable_first = {'00': 1, '01': -1, '10': 1, '11': -1}
-            observable_second = {'00': 1, '01': 1, '10': -1, '11': -1}
-            observable_correlated = {'00': 1, '01': -1, '10': -1, '11': 1}
+        observable_first = {'00': 1, '01': -1, '10': 1, '11': -1}
+        observable_second = {'00': 1, '01': 1, '10': -1, '11': -1}
+        observable_correlated = {'00': 1, '01': -1, '10': -1, '11': 1}
 
+        for igenome in range(num_genome):
 
-            energy_Heis[igenome] = get_energy(num_qubits, Jexch, bj_step, result, [singletXX, singletYY, singletZZ])
+            exec('energy_Heis[igenome] = get_energy(num_qubits, Jexch, bj_step, result, [singletXX_%d, singletYY_%d, singletZZ_%d])' % (igenome, igenome, igenome))
             fitness[igenome] = 0
-            magnetization[igenome] = get_magnetization(num_qubits, result,[singletZZ])
-            corXX[igenome] = average_data(result.get_counts(singletXX), observable_correlated)
-            corYY[igenome] = average_data(result.get_counts(singletYY), observable_correlated)
-            corZZ[igenome] = average_data(result.get_counts(singletZZ), observable_correlated)
+            exec('magnetization[igenome] = get_magnetization(num_qubits, result,[singletZZ_%d])' % igenome)
+            exec('corXX[igenome] = average_data(result.get_counts(singletXX_%d), observable_correlated)' % igenome)
+            exec('corYY[igenome] = average_data(result.get_counts(singletYY_%d), observable_correlated)' % igenome)
+            exec('corZZ[igenome] = average_data(result.get_counts(singletZZ_%d), observable_correlated)' % igenome)
 
-
-
-            print('average energy_Heis=',energy_Heis[igenome])
-            print('average fitness=',fitness[igenome])
-            print('average magnetization=', magnetization[igenome])
+            # print('average energy_Heis=',energy_Heis[igenome])
+            # print('average fitness=',fitness[igenome])
+            # print('average magnetization=', magnetization[igenome])
 
         energy_for_file = energy_Heis.copy()
         energy_for_file.sort()
@@ -617,6 +686,20 @@ for bj_step in range(0, 31):
         correlator_days.flush()
 
         if (abs(prev_energy - energy_Heis[ideal_angle_number]) < pres) or (i == num_iter - 1):
+
+            memory_path = folder_name + str(bj_step) + '-memory.txt'
+            memory_days = open(memory_path, 'w')
+            memory_list = []
+            exec('memory_list = result.get_memory(singletZZ_%d)' % ideal_angle_number)
+            for item_list in memory_list:
+                item_list = list(item_list)
+                for item in item_list:
+                    memory_days.write('%s ' %item)
+                memory_days.write('\n')
+            memory_days.flush()
+            memory_days.close()
+
+
 
             result_days.write(str(bj_step) + ' ' + str(energy_Heis[ideal_angle_number]) + ' ' + str(magnetization[ideal_angle_number]) + ' ' + str(backend) + ' angles:')
             for pair in theta[ideal_angle_number,:,:]:
