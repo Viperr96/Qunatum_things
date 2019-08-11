@@ -511,13 +511,13 @@ print('Account loaded')
 backend = provider.get_backend('ibmq_16_melbourne')
 backend_monitor(backend)
 
-iteration = 1
+iteration = 2
 num_qubits = 4
 Jexch=1
 device_shots = 4096
-depth=5
-num_genome = 50
-num_noble_genome = 10
+depth=1
+num_genome = 100
+num_noble_genome = 20
 num_iter = 25
 angle_mutation = 0.1
 working_backend = 0

@@ -59,8 +59,9 @@ def make_rotation(circuit: QuantumCircuit, registers: QuantumRegister, angles: l
 IBMQ.save_account('ed1f7070919a8ce0469e69c1cb5b5dc1e114879caada8d0ce25d6e28e91b40c90209146d85eec5118e2584667b02e9662802f0ffaa2494c72375a4906e129fdf', overwrite=True)
 
 provider = IBMQ.load_account()
-print("account loaded")
 
+print("account loaded")
+print(provider.backends())
 num_genome=1
 depth=1
 num_qubits=2
@@ -89,16 +90,21 @@ singletZZ = singlet+measureZZ
 backend = provider.get_backend('ibmq_16_melbourne')
 device_shots = 2048
 
-no_error = True
-while no_error:
-    try:
-        # job = execute(circuits, BasicAer.get_backend('qasm_simulator'), shots=device_shots)
-        # job = do_job_on_simulator(backend, circuits)
-
-        job = execute(singletZZ, backend=backend, shots=device_shots)
-        job_monitor(job)
-        result = job.result()
-        no_error = False
-    except JobError:
-        print(JobError)
-        no_error = True
+job = execute(singletZZ, backend=backend, shots=device_shots)
+job_monitor(job)
+result = job.result()
+res = result.get_counts(singletZZ)
+print(res)
+# no_error = True
+# while no_error:
+#     try:
+#         # job = execute(circuits, BasicAer.get_backend('qasm_simulator'), shots=device_shots)
+#         # job = do_job_on_simulator(backend, circuits)
+#
+#         job = execute(singletZZ, backend=backend, shots=device_shots)
+#         job_monitor(job)
+#         result = job.result()
+#         no_error = False
+#     except JobError:
+#         print(JobError)
+#         no_error = True

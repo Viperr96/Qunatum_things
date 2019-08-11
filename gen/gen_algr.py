@@ -15,15 +15,6 @@ from qiskit.providers.exceptions import JobError, JobTimeoutError
 from qiskit.compiler import transpile, assemble
 
 
-# from qiskit import QuantumProgram, QuantumCircuit, QuantumRegister, ClassicalRegister
-
-
-
-# from qiskit import available_backends, get_backend, execute, register
-
-
-
-from qiskit.tools.visualization import plot_histogram, circuit_drawer
 
 def do_job_on_simulator(real_backend , circuits:  list):
 
@@ -50,32 +41,13 @@ def do_job_on_simulator(real_backend , circuits:  list):
 def make_rotation(circuit: QuantumCircuit, registers: QuantumRegister, angles: list):
 
     """
-
-
-
     Rotates and entangle qubits in the circuit
 .
-
-
-
-
-
     :param circuit: a QuantumCircuit object comprising two qubits
-
-
-
     :param registers: list of registers involved in the circuit
-
-
-
     :param angles: list of tuples (theta, lambda, phi) with rotation angles
 
-
-
     :return:
-
-
-
     """
 
 
@@ -90,14 +62,11 @@ def make_rotation(circuit: QuantumCircuit, registers: QuantumRegister, angles: l
     circuit.cx(registers[1], registers[0])
 
 
-def get_energy(exchange, bj, result, circuits: list, codes: dict) -> float:
+def get_energy(exchange, bj, result1, circuits: list) -> float:
 
 
     """
-
     Calculate Heisenberg energy
-.
-
 
     :param exchange: exchange constant
 
@@ -123,7 +92,8 @@ def get_energy(exchange, bj, result, circuits: list, codes: dict) -> float:
 
     """
 
-    res = exchange/4 * (average_data(result.get_counts(circuits[0]), codes) + average_data(result.get_counts(circuits[1]), codes) + average_data(result.get_counts(circuits[2]), codes)) + bj * exchange * get_magnetization(result, [circuits[2]])
+    codes = {'00': 1, '01': -1, '10': -1, '11': 1}
+    res = exchange/4 * (average_data(result1.get_counts(circuits[0]), codes) + average_data(result1.get_counts(circuits[1]), codes) + average_data(result1.get_counts(circuits[2]), codes)) + bj * exchange * get_magnetization(result1, [circuits[2]])
 
     return res
 
@@ -474,6 +444,7 @@ result_days = open(result_path, 'w')
 
 # backend = least_busy(provider.backends(filters=lambda x: not x.configuration().simulator))
 backend = provider.get_backend('ibmq_16_melbourne')
+# backend = provider.get_backend('ibmq_5_yorktown')
 backend_monitor(backend)
 
 for bj_step in range(5, 21):
@@ -602,7 +573,7 @@ for bj_step in range(5, 21):
 
             exec('circuits.extend([singletXX_%d,singletYY_%d,singletZZ_%d])' % (igenome, igenome, igenome))
 
-        qjob = assemble(transpile(circuits, backend=backend), shots=device_shots)
+        result=0
         no_error = True
         while no_error:
             try:
@@ -617,16 +588,17 @@ for bj_step in range(5, 21):
                 print(JobError)
                 no_error = True
 
+        print(type(result))
         observable_first = {'00': 1, '01': -1, '10': 1, '11': -1}
         observable_second = {'00': 1, '01': 1, '10': -1, '11': -1}
         observable_correlated = {'00': 1, '01': -1, '10': -1, '11': 1}
 
         for igenome in range(num_genome):
             exec(
-                'energy_Heis[igenome] = get_energy(num_qubits, Jexch, bj_step, result, [singletXX_%d, singletYY_%d, singletZZ_%d])' % (
+                'energy_Heis[igenome] = get_energy(Jexch, bj_step, result, [singletXX_%d, singletYY_%d, singletZZ_%d])' % (
                 igenome, igenome, igenome))
             fitness[igenome] = 0
-            exec('magnetization[igenome] = get_magnetization(num_qubits, result,[singletZZ_%d])' % igenome)
+            exec('magnetization[igenome] = get_magnetization(result,[singletZZ_%d])' % igenome)
             exec('corXX[igenome] = average_data(result.get_counts(singletXX_%d), observable_correlated)' % igenome)
             exec('corYY[igenome] = average_data(result.get_counts(singletYY_%d), observable_correlated)' % igenome)
             exec('corZZ[igenome] = average_data(result.get_counts(singletZZ_%d), observable_correlated)' % igenome)
